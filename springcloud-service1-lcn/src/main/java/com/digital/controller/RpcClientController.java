@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.digital.api.UserService;
@@ -27,6 +28,7 @@ public class RpcClientController {
     @Autowired
     UserService userservice;
     @RequestMapping(value = "/useraction")
+    @ResponseBody
     public int insert(@RequestParam("name") String name){  //拦截用户发送的/useraction请求
     	
     	return userservice.insert(name);

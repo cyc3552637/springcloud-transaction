@@ -30,7 +30,6 @@ public class UserServiceImpl implements UserService {
     @Value("${server.port}")
     String port;
 
-    
     @Transactional
     public int insert(String name) {
 		// TODO Auto-generated method stub

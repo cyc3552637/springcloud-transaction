@@ -41,3 +41,6 @@ management:
     enabled: false
 logging:
   file: D:\logback\${spring.application.name}-${server.port}.log
+tm:
+  manager:
+    url: http://127.0.0.1:8899/tx/manager/
