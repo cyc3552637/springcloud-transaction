@@ -37,8 +37,9 @@ public class UserServiceImpl implements UserService2 {
     @Transactional
     public String insert2(String name) {
 		// TODO Auto-generated method stub
-    	int num2=userdao.register("2",name,"2");
     	int num1=rpcserverservice.insert(name);
+    	int num2=userdao.register("2",name,"2");
+    	
 	
 
 
