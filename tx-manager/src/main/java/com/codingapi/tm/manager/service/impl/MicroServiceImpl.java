@@ -2,23 +2,20 @@ package com.codingapi.tm.manager.service.impl;
 
 import com.codingapi.tm.Constants;
 import com.codingapi.tm.config.ConfigReader;
-import com.codingapi.tm.framework.utils.IpAddressUtils;
 import com.codingapi.tm.framework.utils.SocketManager;
 import com.codingapi.tm.manager.service.MicroService;
 import com.codingapi.tm.model.TxServer;
 import com.codingapi.tm.model.TxState;
-import com.netflix.appinfo.InstanceInfo;
-import com.netflix.discovery.EurekaClient;
-import com.netflix.discovery.shared.Application;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * create by lorne on 2017/11/11
@@ -38,29 +35,23 @@ public class MicroServiceImpl implements MicroService {
     private DiscoveryClient discoveryClient;
 
 
-    @Autowired
-    private EurekaClient eurekaClient;
 
-
-    /** logger */
-    private static final Logger logger = LoggerFactory.getLogger(MicroServiceImpl.class);
-
-
-
-    public List<InstanceInfo> getConfigServiceInstances() {
-        Application application = eurekaClient.getApplication(tmKey);
-        if (application == null) {
-            logger.error("get eureka server error!");
-        }
-        return application != null ? application.getInstances() : new ArrayList<>();
+    private boolean isIp(String ipAddress) {
+        String ip = "([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}";
+        Pattern pattern = Pattern.compile(ip);
+        Matcher matcher = pattern.matcher(ipAddress);
+        return matcher.matches();
     }
+
+
 
     @Override
     public TxState getState() {
         TxState state = new TxState();
-
-        //String ipAddress = EurekaServerContextHolder.getInstance().getServerContext().getApplicationInfoManager().getEurekaInstanceConfig().getIpAddress();
-        String ipAddress = getIp(discoveryClient.getLocalServiceInstance().getHost());
+        String ipAddress = discoveryClient.getLocalServiceInstance().getHost();
+        if(!isIp(ipAddress)){
+            ipAddress = "127.0.0.1";
+        }
         state.setIp(ipAddress);
         state.setPort(Constants.socketPort);
         state.setMaxConnection(SocketManager.getInstance().getMaxConnection());
@@ -71,34 +62,16 @@ public class MicroServiceImpl implements MicroService {
         state.setNotifyUrl(configReader.getCompensateNotifyUrl());
         state.setCompensate(configReader.isCompensateAuto());
         state.setCompensateTryTime(configReader.getCompensateTryTime());
-        state.setAutoCompensateLimit(configReader.getAutoCompensateLimit());
+        state.setCompensateMaxWaitTime(configReader.getCompensateMaxWaitTime());
         state.setSlbList(getServices());
         return state;
     }
 
-
-    private String getIp(String ipAddress){
-        if(!IpAddressUtils.isIp(ipAddress)){
-
-            ipAddress = IpAddressUtils.getIpByDomain(ipAddress);
-
-            if(ipAddress==null||!IpAddressUtils.isIp(ipAddress)) {
-                ipAddress = "127.0.0.1";
-            }
-        }
-        return ipAddress;
-    }
-
     private List<String> getServices(){
         List<String> urls = new ArrayList<>();
-        List<InstanceInfo> instanceInfos =getConfigServiceInstances();
-        for (InstanceInfo instanceInfo : instanceInfos) {
-            String url = instanceInfo.getHomePageUrl();
-            String address = instanceInfo.getIPAddr();
-            String ipAddress = getIp(address);
-
-            url = url.replace(address,ipAddress);
-            urls.add(url);
+        List<ServiceInstance>  serviceInstances = discoveryClient.getInstances(tmKey);
+        for (ServiceInstance instanceInfo : serviceInstances) {
+            urls.add(instanceInfo.getUri().toASCIIString());
         }
         return urls;
     }

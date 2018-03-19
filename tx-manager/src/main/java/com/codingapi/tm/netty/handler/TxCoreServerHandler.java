@@ -20,7 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
  * Handles a server-side channel.
@@ -35,20 +34,18 @@ public class TxCoreServerHandler extends ChannelInboundHandlerAdapter { // (1)
     private Logger logger = LoggerFactory.getLogger(TxCoreServerHandler.class);
 
 
-    private final static int max_size = 100;
-
-    private Executor  threadPool = Executors.newFixedThreadPool(max_size);
+    private Executor threadPool;
 
 
-
-    public TxCoreServerHandler(NettyService nettyService) {
+    public TxCoreServerHandler(Executor threadPool,NettyService nettyService) {
+        this.threadPool = threadPool;
         this.nettyService = nettyService;
     }
 
     @Override
     public void channelRead(final ChannelHandlerContext ctx, Object msg) throws Exception {
         final String json = SocketUtils.getJson(msg);
-        logger.info("request->"+json);
+        logger.debug("request->"+json);
         threadPool.execute(new Runnable() {
             @Override
             public void run() {
@@ -63,11 +60,11 @@ public class TxCoreServerHandler extends ChannelInboundHandlerAdapter { // (1)
             String action = jsonObject.getString("a");
             String key = jsonObject.getString("k");
             JSONObject params = JSONObject.parseObject(jsonObject.getString("p"));
-            String modelName = ctx.channel().remoteAddress().toString();
+            String channelAddress = ctx.channel().remoteAddress().toString();
 
             IActionService actionService =  nettyService.getActionService(action);
 
-            String res = actionService.execute(modelName,key,params);
+            String res = actionService.execute(channelAddress,key,params);
 
             JSONObject resObj = new JSONObject();
             resObj.put("k", key);

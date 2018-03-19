@@ -29,8 +29,9 @@ public class UserServiceImpl implements UserService {
 
     @Value("${server.port}")
     String port;
-
+    
     @Transactional
+    @TxTransaction
     public int insert(String name) {
 		// TODO Auto-generated method stub
 		int num=userdao.register("1",name,"1");

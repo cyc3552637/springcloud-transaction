@@ -88,7 +88,7 @@ public class TxManagerSenderServiceImpl implements TxManagerSenderService {
     private void setChannel(List<TxInfo> list) {
         for (TxInfo info : list) {
             if(Constants.address.equals(info.getAddress())){
-                Channel channel = SocketManager.getInstance().getChannelByModelName(info.getModelName());
+                Channel channel = SocketManager.getInstance().getChannelByModelName(info.getChannelAddress());
                 if (channel != null &&channel.isActive()) {
                     ChannelSender sender = new ChannelSender();
                     sender.setChannel(channel);
@@ -98,7 +98,7 @@ public class TxManagerSenderServiceImpl implements TxManagerSenderService {
             }else{
                 ChannelSender sender = new ChannelSender();
                 sender.setAddress(info.getAddress());
-                sender.setModelName(info.getModelName());
+                sender.setModelName(info.getChannelAddress());
 
                 info.setChannel(sender);
             }
@@ -112,17 +112,17 @@ public class TxManagerSenderServiceImpl implements TxManagerSenderService {
      *
      * @param checkSate
      */
-    private boolean transaction(TxGroup txGroup, final int checkSate) {
+    private boolean transaction(final TxGroup txGroup, final int checkSate) {
 
 
         if (checkSate == 1) {
 
             //补偿请求，加载历史数据
-            if (txGroup.getIsCommit() == 1) {
+            if (txGroup.getIsCompensate() == 1) {
                 compensateService.reloadCompensate(txGroup);
             }
 
-            CountDownLatchHelper<Boolean> countDownLatchHelper = new CountDownLatchHelper<>();
+            CountDownLatchHelper<Boolean> countDownLatchHelper = new CountDownLatchHelper<Boolean>();
             for (final TxInfo txInfo : txGroup.getList()) {
                 if (txInfo.getIsGroup() == 0) {
                     countDownLatchHelper.addExecute(new IExecute<Boolean>() {
@@ -136,7 +136,7 @@ public class TxManagerSenderServiceImpl implements TxManagerSenderService {
                             jsonObject.put("a", "t");
 
 
-                            if (txGroup.getIsCommit() == 1) {   //补偿请求
+                            if (txGroup.getIsCompensate() == 1) {   //补偿请求
                                 jsonObject.put("c", txInfo.getIsCommit());
                             } else { //正常业务
                                 jsonObject.put("c", checkSate);
@@ -226,7 +226,7 @@ public class TxManagerSenderServiceImpl implements TxManagerSenderService {
     }
 
     @Override
-    public String sendMsg(String model, String msg, int delay) {
+    public String sendMsg(final String model,final String msg, int delay) {
         JSONObject jsonObject = JSON.parseObject(msg);
         String key = jsonObject.getString("k");
 
@@ -299,7 +299,7 @@ public class TxManagerSenderServiceImpl implements TxManagerSenderService {
     }
 
 
-    private ScheduledFuture schedule(String key, int delayTime) {
+    private ScheduledFuture schedule(final String key, int delayTime) {
         ScheduledFuture future = executorService.schedule(new Runnable() {
             @Override
             public void run() {

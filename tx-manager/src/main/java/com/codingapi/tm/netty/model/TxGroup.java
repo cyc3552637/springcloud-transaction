@@ -25,7 +25,7 @@ public class TxGroup {
     /**
      * 补偿请求
      */
-    private int isCommit;
+    private int isCompensate;
 
 
     /**
@@ -36,7 +36,7 @@ public class TxGroup {
     private List<TxInfo> list;
 
     public TxGroup() {
-        list = new ArrayList<>();
+        list = new ArrayList<TxInfo>();
     }
 
     public String getGroupId() {
@@ -63,12 +63,12 @@ public class TxGroup {
         this.startTime = startTime;
     }
 
-    public int getIsCommit() {
-        return isCommit;
+    public int getIsCompensate() {
+        return isCompensate;
     }
 
-    public void setIsCommit(int isCommit) {
-        this.isCommit = isCommit;
+    public void setIsCompensate(int isCompensate) {
+        this.isCompensate = isCompensate;
     }
 
     public int getState() {
@@ -116,7 +116,7 @@ public class TxGroup {
             txGroup.setStartTime(jsonObject.getLong("st"));
             txGroup.setNowTime(jsonObject.getLong("nt"));
             txGroup.setState(jsonObject.getInteger("s"));
-            txGroup.setIsCommit(jsonObject.getInteger("i"));
+            txGroup.setIsCompensate(jsonObject.getInteger("i"));
             txGroup.setRollback(jsonObject.getInteger("r"));
             txGroup.setHasOver(jsonObject.getInteger("o"));
             JSONArray array = jsonObject.getJSONArray("l");
@@ -125,7 +125,7 @@ public class TxGroup {
                 JSONObject object = array.getJSONObject(i);
                 TxInfo info = new TxInfo();
                 info.setKid(object.getString("k"));
-                info.setModelName(object.getString("m"));
+                info.setChannelAddress(object.getString("ca"));
                 info.setNotify(object.getInteger("n"));
                 info.setIsGroup(object.getInteger("ig"));
                 info.setAddress(object.getString("a"));
@@ -151,7 +151,7 @@ public class TxGroup {
         jsonObject.put("st", getStartTime());
         jsonObject.put("nt", getNowTime());
         jsonObject.put("s", getState());
-        jsonObject.put("i", getIsCommit());
+        jsonObject.put("i", getIsCompensate());
         jsonObject.put("r", getRollback());
         jsonObject.put("o",getHasOver());
         if(noList) {
@@ -159,7 +159,7 @@ public class TxGroup {
             for (TxInfo info : getList()) {
                 JSONObject item = new JSONObject();
                 item.put("k", info.getKid());
-                item.put("m", info.getModelName());
+                item.put("ca", info.getChannelAddress());
                 item.put("n", info.getNotify());
                 item.put("ig", info.getIsGroup());
                 item.put("a", info.getAddress());

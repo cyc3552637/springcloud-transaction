@@ -14,6 +14,7 @@ import com.codingapi.tm.model.ModelInfo;
 import com.codingapi.tm.model.ModelName;
 import com.codingapi.tm.netty.model.TxGroup;
 import com.codingapi.tm.netty.model.TxInfo;
+import com.google.common.collect.Lists;
 import com.lorne.core.framework.exception.ServiceException;
 import com.lorne.core.framework.utils.DateUtil;
 import com.lorne.core.framework.utils.encode.Base64Utils;
@@ -53,32 +54,18 @@ public class CompensateServiceImpl implements CompensateService {
     private Executor threadPool = Executors.newFixedThreadPool(20);
 
     @Override
-    public boolean saveCompensateMsg(TransactionCompensateMsg transactionCompensateMsg) {
+    public boolean saveCompensateMsg(final TransactionCompensateMsg transactionCompensateMsg) {
 
         TxGroup txGroup =managerService.getTxGroup(transactionCompensateMsg.getGroupId());
         if (txGroup == null) {
-            return false;
+            //仅发起方异常，其他模块正常
+            txGroup = new TxGroup();
+            txGroup.setNowTime(System.currentTimeMillis());
+            txGroup.setGroupId(transactionCompensateMsg.getGroupId());
+            txGroup.setIsCompensate(1);
+        }else {
+            managerService.deleteTxGroup(txGroup);
         }
-
-        managerService.deleteTxGroup(txGroup);
-
-        //会出现启动模块失败的情况，因此不能校验其他模块是否通知成功，因为只是发起方失败时。也需要提交补偿
-
-//        //已经全部通知的模块不做补偿处理
-//        boolean hasNoNotify = false;
-//
-//        for(TxInfo txInfo:txGroup.getList()){
-//            if(txInfo.getNotify()==0){
-//                hasNoNotify = true;
-//            }
-//        }
-//
-//        if(!hasNoNotify){
-//            //事务已经执行完毕的
-//            logger.info("TxGroup had notify ! ");
-//            return true;
-//        }
-
 
         transactionCompensateMsg.setTxGroup(txGroup);
 
@@ -105,7 +92,7 @@ public class CompensateServiceImpl implements CompensateService {
                     logger.error("Compensate Callback Result->" + res);
                     if (configReader.isCompensateAuto()) {
                         //自动补偿,是否自动执行补偿
-                        if (res.contains("success")||res.contains("SUCCESS")) {
+                        if (res.contains("success") || res.contains("SUCCESS")) {
                             //自动补偿
                             autoCompensate(compensateKey, transactionCompensateMsg);
                         }
@@ -119,9 +106,10 @@ public class CompensateServiceImpl implements CompensateService {
         return StringUtils.isNotEmpty(compensateKey);
 
 
+
     }
 
-
+    @Override
     public void autoCompensate(final String compensateKey, TransactionCompensateMsg transactionCompensateMsg) {
         final String json = JSON.toJSONString(transactionCompensateMsg);
         logger.info("Auto Compensate->" + json);
@@ -178,7 +166,7 @@ public class CompensateServiceImpl implements CompensateService {
     public List<ModelName> loadModelList() {
         List<String> keys =  compensateDao.loadCompensateKeys();
 
-        Map<String,Integer> models = new HashMap<>();
+        Map<String,Integer> models = new HashMap<String, Integer>();
 
         for(String key:keys){
             if(key.length()>36){
@@ -226,7 +214,7 @@ public class CompensateServiceImpl implements CompensateService {
 
             String groupId = jsonObject.getString("groupId");
 
-            String key = path + "_" + groupId;
+            String key = path + ":" + groupId;
             model.setKey(key);
 
             models.add(model);
@@ -259,30 +247,41 @@ public class CompensateServiceImpl implements CompensateService {
     public void reloadCompensate(TxGroup txGroup) {
         TxGroup compensateGroup = getCompensateByGroupId(txGroup.getGroupId());
         if (compensateGroup != null) {
-            for (TxInfo txInfo : txGroup.getList()) {
 
-                for (TxInfo cinfo : compensateGroup.getList()) {
-                    if (cinfo.getModel().equals(txInfo.getModel()) && cinfo.getMethodStr().equals(txInfo.getMethodStr())) {
+            if(compensateGroup.getList() != null && !compensateGroup.getList().isEmpty()){
+                //引用集合 iterator，方便匹配后剔除列表
+                Iterator<TxInfo> iterator = Lists.newArrayList(compensateGroup.getList()).iterator();
+                for (TxInfo txInfo : txGroup.getList()) {
+                    while (iterator.hasNext()) {
+                        TxInfo cinfo = iterator.next();
+                        if (cinfo.getModel().equals(txInfo.getModel()) && cinfo.getMethodStr().equals(txInfo.getMethodStr())) {
+                            //根据之前的数据补偿现在的事务
+                            int oldNotify = cinfo.getNotify();
 
-                        //根据之前的数据补偿现在的事务
-
-                        int oldNotify = cinfo.getNotify();
-
-                        if (oldNotify == 1) {
-                            txInfo.setIsCommit(0);
-                        } else {
-                            txInfo.setIsCommit(1);
+                            if (oldNotify == 1) {
+                                //本次回滚
+                                txInfo.setIsCommit(0);
+                            } else {
+                                //本次提交
+                                txInfo.setIsCommit(1);
+                            }
+                            //匹配后剔除列表
+                            iterator.remove();
+                            break;
                         }
                     }
                 }
-
+            }else{//当没有List数据只记录了补偿数据时，理解问仅发起方提交其他均回滚
+                for (TxInfo txInfo : txGroup.getList()) {
+                    //本次回滚
+                    txInfo.setIsCommit(0);
+                }
             }
         }
-
         logger.info("Compensate Loaded->"+JSON.toJSONString(txGroup));
     }
 
-    private TxGroup getCompensateByGroupId(String groupId) {
+    public TxGroup getCompensateByGroupId(String groupId) {
         String json = compensateDao.getCompensateByGroupId(groupId);
         if (json == null) {
             return null;
@@ -329,6 +328,8 @@ public class CompensateServiceImpl implements CompensateService {
         String groupId = jsonObject.getString("groupId");
 
         String res = managerSenderService.sendCompensateMsg(modelInfo.getChannelName(), groupId, data,startError);
+
+        logger.debug("executeCompensate->"+json+",@@->"+res);
 
         return "1".equals(res);
     }

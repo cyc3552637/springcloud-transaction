@@ -22,7 +22,7 @@
    <dependency>
 			<groupId>com.codingapi</groupId>
 			<artifactId>tx-client</artifactId>
-			<version>4.0.3.M2</version>
+			<version>4.1.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -34,7 +34,7 @@
 	<dependency>
 			<groupId>com.codingapi</groupId>
 			<artifactId>transaction-springcloud</artifactId>
-			<version>4.0.3.M2</version>
+			<version>4.1.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -46,7 +46,7 @@
 		<dependency>
 			<groupId>com.codingapi</groupId>
 			<artifactId>tx-plugins-db</artifactId>
-			<version>4.0.3.M2</version>
+			<version>4.1.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>

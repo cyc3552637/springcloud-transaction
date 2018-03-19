@@ -36,25 +36,22 @@ public class ConfigReader {
     @Value("${tm.compensate.tryTime}")
     private int compensateTryTime;
     
-    @Value("${tm.auto.compensate.limit}")
-    private int autoCompensateLimit;
-
+    @Value("${tm.compensate.maxWaitTime}")
+    private int compensateMaxWaitTime;
 
     /**
      * 事务默认数据的位置，有最大时间
      */
-    private final String key_prefix = "tx_manager_default_";
-
+    private final String key_prefix = "tx:manager:default:";
     /**
      * 负载均衡模块存储信息
      */
-    private final String key_prefix_loadbalance = "loadbalance_";
-
+    private final String key_prefix_loadbalance = "tx:manager:loadbalance:";
 
     /**
      * 补偿事务永久存储数据
      */
-    private final String key_prefix_compensate = "compensate_";
+    private final String key_prefix_compensate = "tx:manager:compensate:";
 
 
     public String getKeyPrefixLoadbalance() {
@@ -101,8 +98,8 @@ public class ConfigReader {
         return compensateTryTime;
     }
 
-	public int getAutoCompensateLimit() {
-		return autoCompensateLimit;
+	public int getCompensateMaxWaitTime() {
+		return compensateMaxWaitTime;
 	}
     
     

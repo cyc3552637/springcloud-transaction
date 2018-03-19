@@ -2,6 +2,7 @@ package com.codingapi.tm.manager.service.impl;
 
 
 import com.codingapi.tm.Constants;
+import com.codingapi.tm.compensate.service.CompensateService;
 import com.codingapi.tm.manager.ModelInfoManager;
 import com.codingapi.tm.manager.service.LoadBalanceService;
 import com.codingapi.tm.manager.service.TxManagerSenderService;
@@ -11,8 +12,6 @@ import com.codingapi.tm.model.ModelInfo;
 import com.codingapi.tm.netty.model.TxGroup;
 import com.codingapi.tm.netty.model.TxInfo;
 import com.codingapi.tm.redis.service.RedisServerService;
-import com.lorne.core.framework.utils.KidUtils;
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +39,9 @@ public class TxManagerServiceImpl implements TxManagerService {
     @Autowired
     private LoadBalanceService loadBalanceService;
 
+    @Autowired
+    private CompensateService compensateService;
+
 
     private Logger logger = LoggerFactory.getLogger(TxManagerServiceImpl.class);
 
@@ -47,10 +49,8 @@ public class TxManagerServiceImpl implements TxManagerService {
     @Override
     public TxGroup createTransactionGroup(String groupId) {
         TxGroup txGroup = new TxGroup();
-        if (StringUtils.isNotEmpty(groupId)) {
-            txGroup.setIsCommit(1);
-        } else {
-            groupId = KidUtils.generateShortUuid();
+        if (compensateService.getCompensateByGroupId(groupId)!=null) {
+            txGroup.setIsCompensate(1);
         }
 
         txGroup.setStartTime(System.currentTimeMillis());
@@ -64,21 +64,21 @@ public class TxManagerServiceImpl implements TxManagerService {
 
 
     @Override
-    public TxGroup addTransactionGroup(String groupId, String taskId, int isGroup, String modelName, String methodStr) {
+    public TxGroup addTransactionGroup(String groupId, String taskId, int isGroup, String channelAddress, String methodStr) {
         String key = getTxGroupKey(groupId);
         TxGroup txGroup = getTxGroup(groupId);
         if (txGroup==null) {
             return null;
         }
         TxInfo txInfo = new TxInfo();
-        txInfo.setModelName(modelName);
+        txInfo.setChannelAddress(channelAddress);
         txInfo.setKid(taskId);
         txInfo.setAddress(Constants.address);
         txInfo.setIsGroup(isGroup);
         txInfo.setMethodStr(methodStr);
 
 
-        ModelInfo modelInfo =  ModelInfoManager.getInstance().getModelByChannelName(modelName);
+        ModelInfo modelInfo =  ModelInfoManager.getInstance().getModelByChannelName(channelAddress);
         if(modelInfo!=null) {
             txInfo.setUniqueKey(modelInfo.getUniqueKey());
             txInfo.setModelIpAddress(modelInfo.getIpAddress());
@@ -116,7 +116,12 @@ public class TxManagerServiceImpl implements TxManagerService {
         }
 
         if(txGroup.getHasOver()==0){
-            logger.info("cleanNotifyTransaction - > groupId "+groupId+" not over !");
+
+            //整个事务回滚.
+            txGroup.setRollback(1);
+            redisServerService.saveTransaction(key, txGroup.toJsonString());
+
+            logger.info("cleanNotifyTransaction - > groupId "+groupId+" not over,all transaction must rollback !");
             return 0;
         }
 
